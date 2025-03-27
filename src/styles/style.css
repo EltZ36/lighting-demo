@@ -10,6 +10,7 @@ h1 {
   font-size: 3.2em;
   line-height: 1.1;
 }
+
 /* from https://stackoverflow.com/questions/29884485/threejs-canvas-size-based-on-container on adjusting the three.js canvas*/
 #canvas {
   width: 100vw;

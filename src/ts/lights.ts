@@ -1,145 +1,141 @@
+//taken from https://github.com/mrdoob/three.js/blob/master/examples/webgl_geometry_terrain_raycast.html
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/Addons.js";
+import Stats from "three/examples/jsm/libs/stats.module.js";
+import { ImprovedNoise, OrbitControls } from "three/examples/jsm/Addons.js";
 
-//plans: aquarium with fish and changing keybinds = different ways to make fish go around. Maybe do some 3d modeling for the fish. needs raycast to work and check for bounds that are off the screen.
-//code gotten from three.js manual on lights: https://threejs.org/manual/#en/lights
-export default function lightsetup(canvas: HTMLDivElement) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+let container: HTMLDivElement;
+let stats: Stats;
+let camera: THREE.PerspectiveCamera,
+  controls: OrbitControls,
+  scene: THREE.Scene,
+  renderer: THREE.WebGLRenderer;
+let mesh: THREE.Mesh, texture: THREE.Texture;
+let helper: THREE.Mesh;
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
 
-  const scene = new THREE.Scene();
-  const fov = 75;
-  const aspect = 2;
-  const near = 0.1;
-  const far = 100;
-  const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-  camera.position.set(0, 10, 20);
+const worldWidth = 512,
+  worldDepth = 128;
+const worldHalfWidth = worldWidth / 2,
+  worldHalfDepth = worldDepth / 2;
 
-  const controls = new OrbitControls(camera, canvas);
-  controls.target.set(0, 5, 0);
+init();
+
+function init(): void {
+  const containerElement = document.querySelector<HTMLDivElement>("#app")!;
+  container = containerElement;
+  container.innerHTML = "";
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setAnimationLoop(animate);
+  container.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xbfd1e5);
+
+  camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    10,
+    20000
+  );
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.minDistance = 1000;
+  controls.maxDistance = 10000;
+  controls.maxPolarAngle = Math.PI / 2;
+
+  const data = generateHeight(worldWidth, worldDepth);
+
+  controls.target.y = data[worldHalfWidth + worldHalfDepth * worldWidth] + 500;
+  camera.position.set(2000, controls.target.y + 2000, 0);
   controls.update();
 
-  const planeSize = 40;
+  const geometry = new THREE.PlaneGeometry(
+    7500,
+    7500,
+    worldWidth - 1,
+    worldDepth - 1
+  );
+  geometry.rotateX(-Math.PI / 2);
 
-  const loader = new THREE.TextureLoader();
-  const texture = loader.load("./src/img/checker.png");
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.magFilter = THREE.NearestFilter;
-  const repeats = planeSize / 2;
-  texture.repeat.set(repeats, repeats);
+  const vertices = geometry.attributes.position.array as Float32Array;
+  for (let i = 0, j = 0, l = vertices.length; i < l; i++, j += 3) {
+    vertices[j + 1] = data[i] * 10;
+  }
 
-  const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-  const planeMat = new THREE.MeshPhongMaterial({
-    map: texture,
-    side: THREE.DoubleSide,
-  });
-  const mesh = new THREE.Mesh(planeGeo, planeMat);
-  mesh.rotation.x = Math.PI * -0.5;
+  texture = new THREE.CanvasTexture(
+    generateTexture(data, worldWidth, worldDepth)
+  );
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({ map: texture })
+  );
   scene.add(mesh);
 
-  scene.add(makeCube());
-  scene.add(makeSphere());
+  const geometryHelper = new THREE.ConeGeometry(20, 100, 3);
+  geometryHelper.translate(0, 50, 0);
+  geometryHelper.rotateX(Math.PI / 2);
+  helper = new THREE.Mesh(geometryHelper, new THREE.MeshNormalMaterial());
+  scene.add(helper);
 
-  const skyColor = 0xb1e1ff; // light blue
-  const groundColor = 0xb97a20; // brownish orange
-  const intensity = 1;
-  //needs additional lights for the sand
-  const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
-  scene.add(light);
+  container.addEventListener("pointermove", onPointerMove);
 
-  render(renderer, scene, camera);
-  requestAnimationFrame(() => {
-    render(renderer, scene, camera);
-  });
+  stats = new Stats();
+  container.appendChild(stats.dom);
+
+  window.addEventListener("resize", onWindowResize);
 }
 
-function makeCube(): THREE.Mesh {
-  const cubeSize = 4;
-  const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-  const cubeMat = new THREE.MeshPhongMaterial({ color: "#FFFFFF" });
-  const mesh = new THREE.Mesh(cubeGeo, cubeMat);
-  mesh.position.set(cubeSize + 1, cubeSize / 2, 0);
-  return mesh;
+function onWindowResize(): void {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function makeSphere(): THREE.Mesh {
-  const sphereRadius = 3;
-  const sphereGeo = new THREE.SphereGeometry(sphereRadius, 32, 16);
-  const sphereMat = new THREE.MeshPhongMaterial({ color: "#FFFFFF" });
-  const mesh = new THREE.Mesh(sphereGeo, sphereMat);
-  mesh.position.set(-sphereRadius - 1, sphereRadius + 2, 0);
-  return mesh;
-}
-
-function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
-  const canvas = renderer.domElement;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const needResize = canvas.width !== width || canvas.height !== height;
-  if (needResize) {
-    renderer.setSize(width, height, false);
-  }
-
-  return needResize;
-}
-
-function render(
-  renderer: THREE.WebGLRenderer,
-  scene: THREE.Scene,
-  camera: THREE.PerspectiveCamera
-) {
-  if (resizeRendererToDisplaySize(renderer)) {
-    const canvas = renderer.domElement;
-    camera.aspect = canvas.clientWidth / canvas.clientHeight;
-    camera.updateProjectionMatrix();
-  }
-
-  renderer.render(scene, camera);
-
-  requestAnimationFrame(() => {
-    render(renderer, scene, camera);
-  });
-}
-
-function generateHeight(width, height) {
-  const size = width * height,
-    data = new Uint8Array(size),
-    perlin = new ImprovedNoise(),
-    z = Math.random() * 100;
-
+function generateHeight(width: number, height: number): Uint8Array {
+  const size = width * height;
+  const data = new Uint8Array(size);
+  const perlin = new ImprovedNoise();
+  const z = Math.random() * 100;
   let quality = 1;
 
   for (let j = 0; j < 4; j++) {
     for (let i = 0; i < size; i++) {
-      const x = i % width,
-        y = ~~(i / width);
+      const x = i % width;
+      const y = ~~(i / width);
       data[i] += Math.abs(
         perlin.noise(x / quality, y / quality, z) * quality * 1.75
       );
     }
-
     quality *= 5;
   }
 
   return data;
 }
 
-//taken from https://github.com/mrdoob/three.js/blob/master/examples/webgl_geometry_terrain_raycast.html
-function generateTexture(data, width, height) {
-  // bake lighting into texture
-
-  let context, image, imageData, shade;
-
+function generateTexture(
+  data: Uint8Array,
+  width: number,
+  height: number
+): HTMLCanvasElement {
+  let context: CanvasRenderingContext2D | null = null;
+  let image: ImageData | null = null;
+  let imageData: Uint8ClampedArray | null = null;
+  let shade: number;
   const vector3 = new THREE.Vector3(0, 0, 0);
-
-  const sun = new THREE.Vector3(1, 1, 1);
-  sun.normalize();
+  const sun = new THREE.Vector3(1, 1, 1).normalize();
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-
-  context = canvas.getContext("2d");
+  context = canvas.getContext("2d")!;
   context.fillStyle = "#000";
   context.fillRect(0, 0, width, height);
 
@@ -147,11 +143,13 @@ function generateTexture(data, width, height) {
   imageData = image.data;
 
   for (let i = 0, j = 0, l = imageData.length; i < l; i += 4, j++) {
-    vector3.x = data[j - 2] - data[j + 2];
-    vector3.y = 2;
-    vector3.z = data[j - width * 2] - data[j + width * 2];
-    vector3.normalize();
-
+    vector3
+      .set(
+        data[j - 2] - data[j + 2],
+        2,
+        data[j - width * 2] - data[j + width * 2]
+      )
+      .normalize();
     shade = vector3.dot(sun);
 
     imageData[i] = (96 + shade * 128) * (0.5 + data[j] * 0.007);
@@ -160,29 +158,26 @@ function generateTexture(data, width, height) {
   }
 
   context.putImageData(image, 0, 0);
+  return canvas;
+}
 
-  // Scaled 4x
+function animate(): void {
+  render();
+  stats.update();
+}
 
-  const canvasScaled = document.createElement("canvas");
-  canvasScaled.width = width * 4;
-  canvasScaled.height = height * 4;
+function render(): void {
+  renderer.render(scene, camera);
+}
 
-  context = canvasScaled.getContext("2d");
-  context.scale(4, 4);
-  context.drawImage(canvas, 0, 0);
+function onPointerMove(event: PointerEvent): void {
+  pointer.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+  pointer.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
 
-  image = context.getImageData(0, 0, canvasScaled.width, canvasScaled.height);
-  imageData = image.data;
-
-  for (let i = 0, l = imageData.length; i < l; i += 4) {
-    const v = ~~(Math.random() * 5);
-
-    imageData[i] += v;
-    imageData[i + 1] += v;
-    imageData[i + 2] += v;
+  const intersects = raycaster.intersectObject(mesh);
+  if (intersects.length > 0) {
+    helper.position.copy(intersects[0].point);
+    helper.lookAt(intersects[0].face!.normal);
   }
-
-  context.putImageData(image, 0, 0);
-
-  return canvasScaled;
 }
