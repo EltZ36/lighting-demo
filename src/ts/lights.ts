@@ -1,23 +1,33 @@
 //taken from https://github.com/mrdoob/three.js/blob/master/examples/webgl_geometry_terrain_raycast.html
 import * as THREE from "three";
-import Stats from "three/examples/jsm/libs/stats.module.js";
-import { ImprovedNoise, OrbitControls } from "three/examples/jsm/Addons.js";
+//import Stats from "three/examples/jsm/libs/stats.module.js";
+//import { ImprovedNoise, OrbitControls } from "three/examples/jsm/Addons.js";
+//import { OrbitControls } from "three/examples/jsm/Addons.js";
 
 let container: HTMLDivElement;
-let stats: Stats;
+//let stats: Stats;
 let camera: THREE.PerspectiveCamera,
-  controls: OrbitControls,
+  //controls: OrbitControls,
   scene: THREE.Scene,
   renderer: THREE.WebGLRenderer;
-let mesh: THREE.Mesh, texture: THREE.Texture;
-let helper: THREE.Mesh;
-const raycaster = new THREE.Raycaster();
+let mesh: THREE.Mesh;
+let circleMesh: THREE.Mesh;
+//let texture: THREE.Texture;
+//let helper: THREE.Mesh;
+//const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
-const worldWidth = 512,
-  worldDepth = 128;
-const worldHalfWidth = worldWidth / 2,
-  worldHalfDepth = worldDepth / 2;
+const movement = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+};
+
+//const worldWidth = 512,
+//worldDepth = 128;
+//const worldHalfWidth = worldWidth / 2,
+//worldHalfDepth = worldDepth / 2;
 
 init();
 
@@ -36,61 +46,104 @@ function init(): void {
   scene.background = new THREE.Color(0xbfd1e5);
 
   camera = new THREE.PerspectiveCamera(
-    60,
+    80,
     window.innerWidth / window.innerHeight,
     10,
-    20000
+    5000
   );
+  camera.position.set(0, 500, 250);
 
-  controls = new OrbitControls(camera, renderer.domElement);
+  /*controls = new OrbitControls(camera, renderer.domElement);
   controls.minDistance = 1000;
   controls.maxDistance = 10000;
   controls.maxPolarAngle = Math.PI / 2;
 
-  const data = generateHeight(worldWidth, worldDepth);
+  //const data = generateHeight(worldWidth, worldDepth);
 
-  controls.target.y = data[worldHalfWidth + worldHalfDepth * worldWidth] + 500;
+  controls.target.y = 500;
+  //controls.target.y = data[worldHalfWidth + worldHalfDepth * worldWidth] + 500;
   camera.position.set(2000, controls.target.y + 2000, 0);
-  controls.update();
+  controls.update(); */
 
-  const geometry = new THREE.PlaneGeometry(
-    7500,
-    7500,
-    worldWidth - 1,
-    worldDepth - 1
-  );
+  //camera.position.set(100, 1000, 0);
+  const geometry = new THREE.PlaneGeometry(7500, 7500, 100, 100);
   geometry.rotateX(-Math.PI / 2);
 
-  const vertices = geometry.attributes.position.array as Float32Array;
-  for (let i = 0, j = 0, l = vertices.length; i < l; i++, j += 3) {
-    vertices[j + 1] = data[i] * 10;
-  }
+  const circle = new THREE.SphereGeometry(100, 32, 32);
+  const circleMaterial = new THREE.MeshPhongMaterial({
+    color: 0xfacade,
+  });
+  circleMesh = new THREE.Mesh(circle, circleMaterial);
+  circleMesh.position.set(0, 500, 0);
+  circleMesh.rotation.x = Math.PI / 2;
+  scene.add(circleMesh);
 
-  texture = new THREE.CanvasTexture(
-    generateTexture(data, worldWidth, worldDepth)
-  );
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-
+  const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 5);
+  scene.add(light);
   mesh = new THREE.Mesh(
     geometry,
-    new THREE.MeshBasicMaterial({ map: texture })
+    new THREE.MeshBasicMaterial({ color: 0xfcf6c3 })
   );
   scene.add(mesh);
 
-  const geometryHelper = new THREE.ConeGeometry(20, 100, 3);
-  geometryHelper.translate(0, 50, 0);
-  geometryHelper.rotateX(Math.PI / 2);
-  helper = new THREE.Mesh(geometryHelper, new THREE.MeshNormalMaterial());
-  scene.add(helper);
-
   container.addEventListener("pointermove", onPointerMove);
 
-  stats = new Stats();
-  container.appendChild(stats.dom);
+  /*stats = new Stats();
+  container.appendChild(stats.dom);*/
 
   window.addEventListener("resize", onWindowResize);
+
+  //const keyPressed = false;
+
+  /*document.addEventListener(
+    "keydown",
+    (e) => {
+      if (!keyPressed) {
+        keyPressed = true;
+        moveMesh(circleMesh, e, keyPressed);
+      }
+    },
+    false
+  );
+
+  document.addEventListener(
+    "keyup",
+    (e) => {
+      keyPressed = false;
+      moveMesh(circleMesh, e, keyPressed);
+    },
+    false
+  ); */
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "w") {
+      movement.up = true;
+    }
+    if (e.key === "s") {
+      movement.down = true;
+    }
+    if (e.key === "a") {
+      movement.left = true;
+    }
+    if (e.key === "d") {
+      movement.right = true;
+    }
+  });
+
+  document.addEventListener("keyup", (e) => {
+    if (e.key === "w") {
+      movement.up = false;
+    }
+    if (e.key === "s") {
+      movement.down = false;
+    }
+    if (e.key === "a") {
+      movement.left = false;
+    }
+    if (e.key === "d") {
+      movement.right = false;
+    }
+  });
 }
 
 function onWindowResize(): void {
@@ -99,7 +152,7 @@ function onWindowResize(): void {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function generateHeight(width: number, height: number): Uint8Array {
+/*function generateHeight(width: number, height: number): Uint8Array {
   const size = width * height;
   const data = new Uint8Array(size);
   const perlin = new ImprovedNoise();
@@ -118,9 +171,9 @@ function generateHeight(width: number, height: number): Uint8Array {
   }
 
   return data;
-}
+} */
 
-function generateTexture(
+/*function generateTexture(
   data: Uint8Array,
   width: number,
   height: number
@@ -159,11 +212,26 @@ function generateTexture(
 
   context.putImageData(image, 0, 0);
   return canvas;
-}
+} */
 
 function animate(): void {
+  if (movement.up) {
+    circleMesh.translateY(-1);
+  }
+  if (movement.down) {
+    circleMesh.translateY(1);
+  }
+  if (movement.left) {
+    circleMesh.translateX(-1);
+  }
+  if (movement.right) {
+    circleMesh.translateX(1);
+  }
+
+  normalize(circleMesh.position);
+
   render();
-  stats.update();
+  //stats.update();
 }
 
 function render(): void {
@@ -173,11 +241,19 @@ function render(): void {
 function onPointerMove(event: PointerEvent): void {
   pointer.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
   pointer.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
+  /* raycaster.setFromCamera(pointer, camera);
 
   const intersects = raycaster.intersectObject(mesh);
   if (intersects.length > 0) {
     helper.position.copy(intersects[0].point);
     helper.lookAt(intersects[0].face!.normal);
+  } */
+}
+
+function normalize(v: THREE.Vector3): THREE.Vector3 {
+  const length = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+  if (length > 0) {
+    return new THREE.Vector3(v.x / length, v.y / length, v.z / length);
   }
+  return new THREE.Vector3(0, 0, 0);
 }
