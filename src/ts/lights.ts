@@ -22,6 +22,8 @@ const movement = {
   down: false,
   left: false,
   right: false,
+  ascend: false,
+  descend: false,
 };
 
 //const worldWidth = 512,
@@ -93,28 +95,6 @@ function init(): void {
 
   window.addEventListener("resize", onWindowResize);
 
-  //const keyPressed = false;
-
-  /*document.addEventListener(
-    "keydown",
-    (e) => {
-      if (!keyPressed) {
-        keyPressed = true;
-        moveMesh(circleMesh, e, keyPressed);
-      }
-    },
-    false
-  );
-
-  document.addEventListener(
-    "keyup",
-    (e) => {
-      keyPressed = false;
-      moveMesh(circleMesh, e, keyPressed);
-    },
-    false
-  ); */
-
   document.addEventListener("keydown", (e) => {
     if (e.key === "w") {
       movement.up = true;
@@ -127,6 +107,12 @@ function init(): void {
     }
     if (e.key === "d") {
       movement.right = true;
+    }
+    if (e.key === "q") {
+      movement.ascend = true;
+    }
+    if (e.key == "e") {
+      movement.descend = true;
     }
   });
 
@@ -142,6 +128,12 @@ function init(): void {
     }
     if (e.key === "d") {
       movement.right = false;
+    }
+    if (e.key === "q") {
+      movement.ascend = false;
+    }
+    if (e.key == "e") {
+      movement.descend = false;
     }
   });
 }
@@ -217,17 +209,34 @@ function onWindowResize(): void {
 function animate(): void {
   if (movement.up) {
     circleMesh.translateY(-1);
+    camera.translateZ(-1);
+    //camera.position.y -= 1;
   }
   if (movement.down) {
     circleMesh.translateY(1);
+    camera.translateZ(1);
+    //camera.position.y += 1;
   }
   if (movement.left) {
     circleMesh.translateX(-1);
+    camera.translateX(-1);
+    //camera.position.x -= 1;
   }
   if (movement.right) {
     circleMesh.translateX(1);
+    camera.translateX(1);
+    //camera.position.x += 1;
   }
-
+  if (movement.ascend) {
+    circleMesh.translateZ(-1);
+    camera.translateY(1);
+    //camera.position.z -= 1;
+  }
+  if (movement.descend) {
+    circleMesh.translateZ(1);
+    camera.translateY(-1);
+    //camera.position.z += 1;
+  }
   normalize(circleMesh.position);
 
   render();
