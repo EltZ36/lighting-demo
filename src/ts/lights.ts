@@ -10,13 +10,19 @@ let camera: THREE.PerspectiveCamera,
   //controls: OrbitControls,
   scene: THREE.Scene,
   renderer: THREE.WebGLRenderer;
-let mesh: THREE.Mesh;
+let sandMesh: THREE.Mesh;
 let circleMesh: THREE.Mesh;
+let waterMesh: THREE.Mesh;
+let circleBox: THREE.Box3;
+let waterBox: THREE.Box3;
+let sandPlane: THREE.PlaneGeometry;
 //let texture: THREE.Texture;
 //let helper: THREE.Mesh;
 //const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
+const unitsAwayCamera = 250;
+const maxFromGround = 120;
 const movement = {
   up: false,
   down: false,
@@ -48,7 +54,7 @@ function init(): void {
   scene.background = new THREE.Color(0xbfd1e5);
 
   camera = new THREE.PerspectiveCamera(
-    80,
+    100,
     window.innerWidth / window.innerHeight,
     10,
     5000
@@ -68,8 +74,8 @@ function init(): void {
   controls.update(); */
 
   //camera.position.set(100, 1000, 0);
-  const geometry = new THREE.PlaneGeometry(7500, 7500, 100, 100);
-  geometry.rotateX(-Math.PI / 2);
+  sandPlane = new THREE.PlaneGeometry(7500, 7500, 100, 100);
+  sandPlane.rotateX(-Math.PI / 2);
 
   const circle = new THREE.SphereGeometry(100, 32, 32);
   const circleMaterial = new THREE.MeshPhongMaterial({
@@ -80,13 +86,32 @@ function init(): void {
   circleMesh.rotation.x = Math.PI / 2;
   scene.add(circleMesh);
 
+  waterMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(7500, 2500, 7500),
+    new THREE.MeshPhongMaterial({
+      color: 0x00aaff,
+      transparent: true,
+      opacity: 0.5,
+      side: THREE.DoubleSide,
+    })
+  );
+  waterMesh.position.set(0, 1200, 0);
+  waterBox = createCollisionBox(waterMesh);
+  const waterHelper = new THREE.Box3Helper(waterBox, 0x00aaff);
+  scene.add(waterHelper);
+  scene.add(waterMesh);
+
+  circleBox = createCollisionBox(circleMesh);
+  const helper = new THREE.Box3Helper(circleBox, 0xffff00);
+  scene.add(helper);
+
   const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 5);
   scene.add(light);
-  mesh = new THREE.Mesh(
-    geometry,
+  sandMesh = new THREE.Mesh(
+    sandPlane,
     new THREE.MeshBasicMaterial({ color: 0xfcf6c3 })
   );
-  scene.add(mesh);
+  scene.add(sandMesh);
 
   container.addEventListener("pointermove", onPointerMove);
 
@@ -144,106 +169,111 @@ function onWindowResize(): void {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-/*function generateHeight(width: number, height: number): Uint8Array {
-  const size = width * height;
-  const data = new Uint8Array(size);
-  const perlin = new ImprovedNoise();
-  const z = Math.random() * 100;
-  let quality = 1;
-
-  for (let j = 0; j < 4; j++) {
-    for (let i = 0; i < size; i++) {
-      const x = i % width;
-      const y = ~~(i / width);
-      data[i] += Math.abs(
-        perlin.noise(x / quality, y / quality, z) * quality * 1.75
-      );
-    }
-    quality *= 5;
-  }
-
-  return data;
-} */
-
-/*function generateTexture(
-  data: Uint8Array,
-  width: number,
-  height: number
-): HTMLCanvasElement {
-  let context: CanvasRenderingContext2D | null = null;
-  let image: ImageData | null = null;
-  let imageData: Uint8ClampedArray | null = null;
-  let shade: number;
-  const vector3 = new THREE.Vector3(0, 0, 0);
-  const sun = new THREE.Vector3(1, 1, 1).normalize();
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  context = canvas.getContext("2d")!;
-  context.fillStyle = "#000";
-  context.fillRect(0, 0, width, height);
-
-  image = context.getImageData(0, 0, canvas.width, canvas.height);
-  imageData = image.data;
-
-  for (let i = 0, j = 0, l = imageData.length; i < l; i += 4, j++) {
-    vector3
-      .set(
-        data[j - 2] - data[j + 2],
-        2,
-        data[j - width * 2] - data[j + width * 2]
-      )
-      .normalize();
-    shade = vector3.dot(sun);
-
-    imageData[i] = (96 + shade * 128) * (0.5 + data[j] * 0.007);
-    imageData[i + 1] = (32 + shade * 96) * (0.5 + data[j] * 0.007);
-    imageData[i + 2] = shade * 96 * (0.5 + data[j] * 0.007);
-  }
-
-  context.putImageData(image, 0, 0);
-  return canvas;
-} */
-
 function animate(): void {
+  const circleSpeedX = 5;
+  const circleSpeedY = 5;
+  const circleSpeedZ = 5;
+
+  const cameraSpeedX = 5;
+  const cameraSpeedY = 5;
+  const cameraSpeedZ = 5;
+
   if (movement.up) {
-    circleMesh.translateY(-1);
-    camera.translateZ(-1);
+    circleMesh.translateY(-circleSpeedY);
+    camera.translateZ(-cameraSpeedZ);
     //camera.position.y -= 1;
   }
   if (movement.down) {
-    circleMesh.translateY(1);
-    camera.translateZ(1);
+    circleMesh.translateY(circleSpeedY);
+    camera.translateZ(cameraSpeedZ);
     //camera.position.y += 1;
   }
   if (movement.left) {
-    circleMesh.translateX(-1);
-    camera.translateX(-1);
+    circleMesh.translateX(-circleSpeedX);
+    camera.translateX(-cameraSpeedX);
     //camera.position.x -= 1;
   }
   if (movement.right) {
-    circleMesh.translateX(1);
-    camera.translateX(1);
+    circleMesh.translateX(circleSpeedX);
+    camera.translateX(cameraSpeedX);
     //camera.position.x += 1;
   }
   if (movement.ascend) {
-    circleMesh.translateZ(-1);
-    camera.translateY(1);
+    circleMesh.translateZ(-circleSpeedZ);
+    camera.translateY(cameraSpeedY);
     //camera.position.z -= 1;
   }
   if (movement.descend) {
-    circleMesh.translateZ(1);
-    camera.translateY(-1);
+    circleMesh.translateZ(circleSpeedZ);
+    camera.translateY(-cameraSpeedY);
     //camera.position.z += 1;
   }
   normalize(circleMesh.position);
 
-  render();
+  renderScene();
   //stats.update();
 }
 
-function render(): void {
+function renderScene(): void {
+  //checks if the circle intersects with the sand
+  if (
+    circleBox
+      .setFromObject(circleMesh)
+      .intersectsBox(createCollisionBox(sandMesh))
+  ) {
+    circleMesh.position.y = maxFromGround;
+    //camera needs to adjust to the same position and zoom as the circle
+    //camera.position.y = circleMesh.position.y;
+    camera.position.set(
+      circleMesh.position.x,
+      circleMesh.position.y,
+      circleMesh.position.z + unitsAwayCamera
+    );
+  }
+  if (
+    waterBox
+      .setFromObject(waterMesh)
+      .containsBox(createCollisionBox(circleMesh)) != true
+  ) {
+    const yLimit = 1500;
+    const yRestriction = 1500;
+    const xLimit = 2500;
+    const xRestriction = 2200;
+    const zLimit = 2200;
+    const zRestriction = 2200;
+    if (
+      Math.abs(circleMesh.position.y) >= Math.abs(waterMesh.position.y + yLimit)
+    ) {
+      circleMesh.position.y = waterMesh.position.y + yRestriction;
+      console.log("y is too high");
+    }
+    if (
+      Math.abs(circleMesh.position.y) < Math.abs(waterMesh.position.y - yLimit)
+    ) {
+      circleMesh.position.y = waterMesh.position.y - yRestriction;
+      console.log("y is too low");
+    }
+    if (circleMesh.position.x >= waterMesh.position.x - xLimit) {
+      circleMesh.position.x = waterMesh.position.x + xRestriction;
+      console.log("x is too high");
+    }
+    if (
+      Math.abs(circleMesh.position.x) <= Math.abs(waterMesh.position.x - zLimit)
+    ) {
+      circleMesh.position.x = waterMesh.position.x - zRestriction;
+    }
+    if (
+      Math.abs(circleMesh.position.z) >= Math.abs(waterMesh.position.z + zLimit)
+    ) {
+      circleMesh.position.z = waterMesh.position.z + zRestriction;
+      console.log("z is too high");
+    }
+    camera.position.set(
+      circleMesh.position.x,
+      circleMesh.position.y,
+      circleMesh.position.z + unitsAwayCamera
+    );
+  }
   renderer.render(scene, camera);
 }
 
@@ -265,4 +295,11 @@ function normalize(v: THREE.Vector3): THREE.Vector3 {
     return new THREE.Vector3(v.x / length, v.y / length, v.z / length);
   }
   return new THREE.Vector3(0, 0, 0);
+}
+
+//function based on https://www.youtube.com/watch?v=9H3HPq-BTMo
+function createCollisionBox(mesh: THREE.Mesh): THREE.Box3 {
+  const box = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+  box.setFromObject(mesh);
+  return box;
 }
