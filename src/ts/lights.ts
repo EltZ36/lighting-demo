@@ -1,5 +1,6 @@
 //taken from https://github.com/mrdoob/three.js/blob/master/examples/webgl_geometry_terrain_raycast.html
 import * as THREE from "three";
+import { OBB } from "three/addons/math/OBB.js";
 //import Stats from "three/examples/jsm/libs/stats.module.js";
 //import { ImprovedNoise, OrbitControls } from "three/examples/jsm/Addons.js";
 //import { OrbitControls } from "three/examples/jsm/Addons.js";
@@ -181,33 +182,29 @@ function animate(): void {
   if (movement.up) {
     circleMesh.translateY(-circleSpeedY);
     camera.translateZ(-cameraSpeedZ);
-    //camera.position.y -= 1;
   }
   if (movement.down) {
     circleMesh.translateY(circleSpeedY);
     camera.translateZ(cameraSpeedZ);
-    //camera.position.y += 1;
   }
   if (movement.left) {
     circleMesh.translateX(-circleSpeedX);
     camera.translateX(-cameraSpeedX);
-    //camera.position.x -= 1;
   }
   if (movement.right) {
     circleMesh.translateX(circleSpeedX);
     camera.translateX(cameraSpeedX);
-    //camera.position.x += 1;
   }
   if (movement.ascend) {
     circleMesh.translateZ(-circleSpeedZ);
     camera.translateY(cameraSpeedY);
-    //camera.position.z -= 1;
   }
   if (movement.descend) {
     circleMesh.translateZ(circleSpeedZ);
     camera.translateY(-cameraSpeedY);
-    //camera.position.z += 1;
   }
+
+  checkUnderwaterEffect(circleMesh, waterBox);
   normalize(circleMesh.position);
 
   renderScene();
@@ -224,50 +221,6 @@ function renderScene(): void {
     circleMesh.position.y = maxFromGround;
     //camera needs to adjust to the same position and zoom as the circle
     //camera.position.y = circleMesh.position.y;
-    camera.position.set(
-      circleMesh.position.x,
-      circleMesh.position.y,
-      circleMesh.position.z + unitsAwayCamera
-    );
-  }
-  if (
-    waterBox
-      .setFromObject(waterMesh)
-      .containsBox(createCollisionBox(circleMesh)) != true
-  ) {
-    const yLimit = 1500;
-    const yRestriction = 1500;
-    const xLimit = 2500;
-    const xRestriction = 2200;
-    const zLimit = 2200;
-    const zRestriction = 2200;
-    if (
-      Math.abs(circleMesh.position.y) >= Math.abs(waterMesh.position.y + yLimit)
-    ) {
-      circleMesh.position.y = waterMesh.position.y + yRestriction;
-      console.log("y is too high");
-    }
-    if (
-      Math.abs(circleMesh.position.y) < Math.abs(waterMesh.position.y - yLimit)
-    ) {
-      circleMesh.position.y = waterMesh.position.y - yRestriction;
-      console.log("y is too low");
-    }
-    if (circleMesh.position.x >= waterMesh.position.x - xLimit) {
-      circleMesh.position.x = waterMesh.position.x + xRestriction;
-      console.log("x is too high");
-    }
-    if (
-      Math.abs(circleMesh.position.x) <= Math.abs(waterMesh.position.x - zLimit)
-    ) {
-      circleMesh.position.x = waterMesh.position.x - zRestriction;
-    }
-    if (
-      Math.abs(circleMesh.position.z) >= Math.abs(waterMesh.position.z + zLimit)
-    ) {
-      circleMesh.position.z = waterMesh.position.z + zRestriction;
-      console.log("z is too high");
-    }
     camera.position.set(
       circleMesh.position.x,
       circleMesh.position.y,
@@ -302,4 +255,15 @@ function createCollisionBox(mesh: THREE.Mesh): THREE.Box3 {
   const box = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
   box.setFromObject(mesh);
   return box;
+}
+
+//given by GPT asking about how to keep a box inside another box
+function checkUnderwaterEffect(playerMesh: THREE.Mesh, box: THREE.Box3): void {
+  const playerPosition = playerMesh.position;
+  if (box.containsPoint(playerPosition)) {
+    return;
+  } else {
+    box.clampPoint(playerMesh.position, playerMesh.position);
+    box.clampPoint(camera.position, camera.position);
+  }
 }
