@@ -45,7 +45,7 @@ function init(): void {
   container = containerElement;
   container.innerHTML = "";
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setAnimationLoop(animate);
@@ -113,6 +113,10 @@ function init(): void {
     new THREE.MeshBasicMaterial({ color: 0xfcf6c3 })
   );
   scene.add(sandMesh);
+
+  scene.fog = new THREE.Fog(0x05d0eb, 50, 300);
+  //const backgroundColor = new THREE.Color(0xcfe2f3);
+  //renderer.setClearColor(backgroundColor);
 
   container.addEventListener("pointermove", onPointerMove);
 
